@@ -1,0 +1,17 @@
+{
+  "name": "transcription-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev:web": "pnpm --filter @transcription/web dev",
+    "dev:worker": "pnpm --filter @transcription/worker dev",
+    "dev": "pnpm dev:web & pnpm dev:worker",
+    "build": "pnpm -r build",
+    "start:web": "pnpm --filter @transcription/web start",
+    "start:worker": "pnpm --filter @transcription/worker start",
+    "start": "pnpm start:web & pnpm start:worker"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

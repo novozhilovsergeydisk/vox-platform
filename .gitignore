@@ -1,0 +1,32 @@
+# Dependency directories
+node_modules/
+**/node_modules/
+
+# Next.js build output
+.next/
+out/
+**/.next/
+
+# TypeScript build output
+dist/
+**/dist/
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS files
+.DS_Store
+Thumbs.db
+**/.DS_Store
+
+# User Uploads
+apps/web/public/uploads/*
+!apps/web/public/uploads/.gitkeep
+
+# System generated logs
+.system_generated/
+*.log
