@@ -60,14 +60,60 @@ const worker = new Worker(
 
     // Определяем файл для обработки (скачиваем, если по ссылке URL)
     let targetFilePath = filePath
+    let fileUrl: string | null = null
 
     if (type === "url") {
-      console.log(`[Job ${job.id}] Загрузка аудио по URL: ${sourceUrl}...`)
-      // В MVP для простоты мы можем использовать yt-dlp напрямую.
-      // Но чтобы избежать падения, если yt-dlp отсутствует в системе, 
-      // наш Python-скрипт умеет генерировать mock или обработать URL самостоятельно.
-      // Передаем URL в качестве файла, transcribe.py обработает это
-      targetFilePath = sourceUrl
+      console.log(`[Job ${job.id}] Загрузка аудио по URL через yt-dlp: ${sourceUrl}...`)
+      // Путь к папке uploads внутри apps/web/public
+      const uploadDir = join(__dirname, "../../../apps/web/public/uploads")
+      const uniqueFileName = `${transcriptionId}.mp3`
+      const outputFilePath = join(uploadDir, uniqueFileName)
+      
+      fileUrl = `/uploads/${uniqueFileName}`
+
+      try {
+        await new Promise<void>((resolveDownload, rejectDownload) => {
+          const ytDlpProcess = spawn("yt-dlp", [
+            "--no-playlist",
+            "-x",
+            "--audio-format",
+            "mp3",
+            "-o",
+            outputFilePath,
+            sourceUrl
+          ])
+
+          let stderr = ""
+          ytDlpProcess.stderr.on("data", (chunk: any) => {
+            stderr += chunk.toString()
+          })
+
+          ytDlpProcess.on("close", (code: number | null) => {
+            if (code === 0) {
+              console.log(`[Job ${job.id}] Аудио с YouTube успешно скачано в ${outputFilePath}`)
+              resolveDownload()
+            } else {
+              rejectDownload(new Error(`yt-dlp завершился с кодом ${code}: ${stderr.slice(-500)}`))
+            }
+          })
+        })
+
+        // Записываем локальный путь к скачанному файлу в базу данных, чтобы плеер заиграл
+        await query(
+          "UPDATE transcriptions SET file_url = $1, file_name = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3",
+          [fileUrl, uniqueFileName, transcriptionId]
+        )
+        
+        targetFilePath = outputFilePath
+      } catch (downloadError: any) {
+        console.error(`[Job ${job.id}] Ошибка скачивания через yt-dlp:`, downloadError)
+        
+        await query(
+          "UPDATE transcriptions SET status = 'FAILED', error_message = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+          [`Ошибка скачивания медиафайла по URL: ${downloadError.message}`, transcriptionId]
+        )
+        return // Прерываем выполнение
+      }
     }
 
     // 2. Запуск Python скрипта распознавания
